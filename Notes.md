@@ -8,12 +8,16 @@
 
 ## Index
 
-- [ROS Basic](Notes.md#ROS-Basic)
+- [ROS Basic Concept](Notes.md#ROS-Basic-Concept)
   - [Packages](Notes.md#Packages)
   - [Master and nodes](Notes.md#Master-and-nodes)
   - [Topics and messages](Notes.md#Topics-and-messages)
     - [Messages and message types](Notes.md#Messages-and-message-types)
-## ROS Basic
+  - [A little more](Notes.md#A-little-more)
+- [Writing ROS Programs](Notes.md#Writing-ROS-Programs)
+  - [Create a workspace and a package](Notes.md#Create-a-workspace-and-a-package)
+  - [Compile the Hello program](Notes.md#Compile-the-Hello-program)
+## ROS Basic Concept
 
 ### Packages
 
@@ -27,7 +31,7 @@ To obtain a list of all of the installed ROS packages: `rospack list`
 `rosls [package-name]`  
 * Go to the package directory:   
 `roscd [package-name]`  
-[You may return to Index](Notes.md#Index)
+[Return to Index](Notes.md#Index)
 ### Master and nodes
 
 Nodes: Small, mostly independent programs/ A running instance of ROS program.  
@@ -48,13 +52,13 @@ Nodes have to aontact with each other, ROS master facilitates this communication
 `rosrun kill [node-name]`  
 * you can also kill a node by using Ctrl-C technique, but you may remove dead nodes from the node list by:  
 `rosnode cleanup`  
-[You may return to Index](Notes.md#Index)
+[Return to Index](Notes.md#Index)
 ### Topics and messages
 
 **ROS nodes wants to share info will publish messages on appropriate topics, or wants to receive info will suscribe to topics. ROS master makes sure that publishers and subscribers can find each other.**  
 To see this relationship visually: `rqt_graph`    
 *The author's preference is change the dropsown from "Nodes only" to "Nodes/Topics(all)", and to disable all of the checkboxes except "Hide Debug".*  
-[You may return to Index](Notes.md#Index)
+[Return to Index](Notes.md#Index)
 #### Messages and message types
 * To get a list of active topics:   
 `rostopic list`  
@@ -93,4 +97,46 @@ e.g.:
 turtlesim + Color = turtlesim/Color
 package-name + type-name = message-data-type
 ```
-[You may return to Index](Notes.md#Index)
+[Return to Index](Notes.md#Index)
+### A little more
+
+* Communication via topics is many to many.  
+    *Many publishers and many subscribers cen share a single topic.*
+* ROS provides a one-to-one mechanism called services.  
+[Return to Index](Notes.md#Index)
+## Writing ROS Programs
+
+### Create a workspace and a package
+
+1. Create a directory
+```
+cd ~
+mkdir workspace
+```
+2. Create a package  
+`catkin_create_pkg package_name`  
+    **ROS package names only allow lowercase letters, digits and underscores.**  
+3. Put the hello.cpp right next to package.xml and CMakeLists.txt.  
+    **code of hello.cpp**
+```
+//This header defines the standard ROS classes
+#include <ros/ros.h>
+int main(int argc, char **argv) {
+	//Initialize the ROS system
+	ros::init(argc, argv, "hello_ros");  
+	//Establish this program as a ROS node
+	ros::NodeHandle nh;  
+	//Send some output as a log message
+	ROS_INFO_STREAM("Hello,_ROS!");  //Generate an informational message
+}
+```
+
+    **In this code, note that:**  
+	- `#include <ros/ros.h>` should be included in every ROS program.  
+    - `ros::init(argc, argv, "hello_ros");` should be called once at the beginning of your program, the last paramater is a string containing the default name of the node.
+	- `ros::NodeHandle nh;` create a single NodeHandle object to use throughout the program, which is the simplest technique to register your program as a node with the ROS master.
+### Compile the Hello program
+
+
+1. Declare dependencies  
+    To list dependencies, edit the CMakeLists.txt. The line needed to be edited is* `find_package(catkin REQUIRED)`  
