@@ -111,9 +111,10 @@ package-name + type-name = message-data-type
 1. Create a directory
 ```
 cd ~
-mkdir workspace
+mkdir -p workspace/src
 ```
 2. Create a package  
+Change directory to /src, use the command :  
 `catkin_create_pkg package_name`  
     **ROS package names only allow lowercase letters, digits and underscores.**  
 3. Put the hello.cpp right next to package.xml and CMakeLists.txt.  
@@ -140,3 +141,36 @@ int main(int argc, char **argv) {
 
 1. Declare dependencies  
     To list dependencies, edit the CMakeLists.txt. The line needed to be edited is* `find_package(catkin REQUIRED)`  
+	Dependencies on other catkin packages can be added in a COMPONENTS section on this line:  
+	`find_package(catkin REQUIRED COMPONENTS [package-name])`  
+	In this example, is:  
+	`find_package(catkin REQUIRED COMPONENTS roscpp)`  
+	Also list dependencies in package.xml:
+	```
+	<build_depend>[package-name]</build_depend>
+	<run_depend>[package-nema]</run_depend>
+	#In this example:
+	<build_depend>roscpp</build_depend>
+	<run_depend>roscpp</run_depend>
+	#need roscpp both at build time and run time
+	```
+2. Declare an executable
+    Add the following two lines in CMakeLists.txt to declare the executable youd'd like to create.
+	```
+	add_executable([executable-name] [sourse-files])
+	target_link_libraries([executable-name] ${catkin_LIBRARIES})
+	#In this example
+	add_executable(hello hello.cpp)
+	target_link_libraries(hello ${catkin_LIBRARIES})
+	```
+	**When I tested the above steps on ROS kinetics, I found that one more step was needed, which was adding** `include_directories(include ${catkin_INCLUDE_DIRS})` **in the CMakeLists.txt.**
+3. Build the workspace
+```
+cd ~/workspace
+catkin_make
+```
+You will see sth like:  
+`[100%]Built target hello`
+4. Source setup.bash
+    This is the final step which sets several encironmental variables that enable ROS to find the package and its new-generated executables.**You need to do this once in each terminal.**  
+	`source devel/setup.bash`
