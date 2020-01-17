@@ -16,7 +16,11 @@
   - [A little more](Notes.md#A-little-more)
 - [Writing ROS Programs](Notes.md#Writing-ROS-Programs)
   - [Create a workspace and a package](Notes.md#Create-a-workspace-and-a-package)
-  - [Compile the Hello program](Notes.md#Compile-the-Hello-program)
+  - [Compile and execute the Hello program](Notes.md#Compile-and-execute-the-Hello-program)
+  - [A publisher program](Notes.md#A-publisher-program)
+  - [Compile and execute the publisher](Notes.md#Compile-and-execute-the-publisher)
+  - [A subscriber program](Notes.md#A-subscriber-program)
+  - [Compile and execute the subscriber](Notes.md#Compile-and-execute-the-subscriber)
 ## ROS Basic Concept
 
 ### Packages
@@ -136,7 +140,7 @@ int main(int argc, char **argv) {
 	- `#include <ros/ros.h>` should be included in every ROS program.  
     - `ros::init(argc, argv, "hello_ros");` should be called once at the beginning of your program, the last paramater is a string containing the default name of the node.
 	- `ros::NodeHandle nh;` create a single NodeHandle object to use throughout the program, which is the simplest technique to register your program as a node with the ROS master.
-### Compile the Hello program
+### Compile and execute the Hello program
 
 
 1. Declare dependencies  
@@ -172,5 +176,171 @@ catkin_make
 You will see sth like:  
 `[100%]Built target hello`
 4. Source setup.bash
-    This is the final step which sets several encironmental variables that enable ROS to find the package and its new-generated executables.**You need to do this once in each terminal.**  
+    This is the final step to compile the program which sets several encironmental variables that enable ROS to find the package and its new-generated executables.**You need to do this once in each terminal.**  
 	`source devel/setup.bash`
+5. Start the roscore  
+    The first step to execute a program is always make sure that `roscore` is run in one of your terminal.
+6. Start the hello program  
+    Use `rosrun` command to run the program.  
+	In this case, `rosrun package_name hello`  
+	[Return to Index](Notes.md#Index)
+### A publisher program  
+
+This program send randomly-generated velocity commands to a turtlesim turtle. This program named *pubvel*, **Following is the code:**  
+```
+#include<ros/ros.h>
+#include<geometry_msgs/Twist.h> //For geometry_msgs::Twist
+#include<stdlib.h> //For rand() and RAND_MAX
+
+int main(int argc, char **argv){
+	//Initialize the ROS system and become a node
+	ros::init(argc, argv, "publish_vilocity");
+	ros::NodeHandle nh;
+	
+	//Create a publisher object
+	ros::Publisher pub = nh.advertise<geometry_msgs::Twist>("turtle1/cmd_vel",1000);
+	
+	//Seed the random number generator
+	srand(time(0))
+	
+	//Loop at 2 Hz until the node is shut down
+	ros::Rate rate(2)
+	while(ros::ok()){
+		//Create and fill in the message. The other four fields, as the turtle is in a 2-D space, is ignored by turtlesim, default to 0.
+		geomotry_msgs::Twist msg;
+		msg.linear.x=double(rand())/double(RAND_MAX);
+		msg.angular.z=2*double(rand())/double(RAND_MAX)-1;
+		
+		//Publish the message
+		pub.publish(msg);
+		
+		//Send a message to rosout with the details.
+		ROS_INFO_STREAM("Sending random velocity command:")
+		<<" linear="<<msg.linear.x
+		<<" angular="<<msg.angular.z;
+		
+		//Wait until it is time for another iteration
+		rate.sleep();
+	}
+}
+```
+**In this code, note that:**  
+- Include the message type declaration: `#include<geometry_msgs/Twists.h>`  
+    You need to #include this header for every message type used in the program. Each type has a corresponding C++ header file. 
+	e.g.: `#include<package_name/type_name.h>`  
+	The practical impact of this naming is that later in the program we will use scope resoliution operator(::) to seperate the package name from the type name. In this example, the header defines a class called *geometry_msgs::Twist*.  
+- Create a publisher object: `ros::Publisher pub = nh.advertise<geometry_msgs::Twist>("turtle1/cmd_vel",1000);`  
+    Create an object that actually does the publishing work, named ros::Publisher.
+	e.g.: `ros::Publisher pub=node_handle.advertise<message_type>(topic_name,queue_size);`in which:
+  * `node_handle` is an object of class `ros::NodeHandle`, which is created near the start of the program. We are calling the **advertise** method of that object.
+  * `message_type` should be the name of the class defined in the header. In this case, it is *geometry_msgs::Twist*.
+  * `topic_name` is a string containing the name of the topic on which we want to publish. It should match names shown by `rostopic` or `rqt_graph` but wigh out leading slash. In this case, the topic name should be *turtle1/cmd_vel*.
+  * `queue_size` is an integer represent the the size of the message queue for this publisher. In most case, a reasonably large value like 1000 is suitable.   
+    *If you want to publish messages on multiple topics from the same node, you will need to create a seperate ros::Publish object for each topic.*  
+    **It is recommanded to create one publisher for each topic and use that publisher throughout the execution of your program.**
+- Create and fill in the message object
+  * Create the message onject:
+      `geometry_msgs::Twist msg;`
+  * Fill in the message onject:
+      You can use `rosmsg show` to check the message type, it has two top-level fields, wach of which contains three sub-fields. Since there is only 2D space for the turtle, turtulsim isnores other four fields.   
+	  The following lines set linear velocity between 0 and 1, and set the angular velocity to -1 and 1.
+	  ```
+	  msg.linear.x = double(rand())/double(RAND_MAX);
+	  msg.angular.z = 2*double(rand())/double(RAND_MAX)-1;
+	  ```
+  * Publish the message:
+      Use the publish method of ros::Publisher object to publish the message. In this example, it looks like this: `pub.publish(msg)`  
+- Check for node shutdown
+    `ros::ok()` checks whether the program is still in "good standing" as a ROS node. It will return true **until** the node has some reaseon to shut down. There are a few ways to get ros::ok() to return false:
+  * Use rosnode kill on the node.
+  * Send an interrupt signal(Ctrl-X) to the program.
+  * Put `ros::shutdown()` in the program.
+  * Start another code with the same name.
+- Control the publishing rate  
+  * `ros::Rate rate(2);` controls how rapidly the loop runs. The parameter in its constructor is in unit of Hz.
+  * `rate.sleep();` is used to cause a delay in the program. The duration of the delay is calculated to prevent the loop from iterating faster than the spacified rate. In this case, which is 2 Hz. You can use `rostopic hz` to confirm that regulation.  
+[Return to Index](Notes.md#Index)
+### Compile and execute the publisher
+
+*The process of building pubvel is mostly the same as for hello program, but only one important difference from hello.*  
+**Declaring message type dependencies**   
+As pubvel uses a messsage type from the geometry_msgs package, we must declare a dependency on that package. 
+1. Modify the find_package line in CMakeLists.txt:
+    ```
+	find_package(catkin REQUIRED COMPONENTS roscpp geometry_msgs)
+	```
+2. Add elements for new dependency in package.xml:
+    ```
+	<build_depend>geometry_msgs</build_depend>
+	<run_depend>geometry_msgs</run_depend>
+	```
+[Review other steps to compile a program](Notes.md#Compile-and-execute-the-Hello-program)
+Finally, use `rosrun package_name pubvel` to run the publisher. Don't forget to run ros core first.  
+Turn on the simulator: `rosrun turtlesim turtlesim_node`, you can see turtle respond to the motion commands that pubvel publishes.  
+[Return to Index](Notes.md#Index)
+### A subscriber program
+
+This is a subscriber program named subpose that subscribe to the /turtle1/pose topic. The following are its codes:  
+```
+//This programs shows messages from /turtle1/pose on the screen.
+#include<ros/ros.h>
+#include<turtlesim/Pose.h>
+#include<iomanip>  //for std::setprecision and std::fixed
+
+//A callback function Excuted each time a new pose message arrives
+void poseMessageReceived(const turtlesim::Pose& msg){
+	ROS_INFO_STREAM(std::setprecision(2)<<std::fixed
+	  <<"position=("<<msg.x<<","<<msg.y<<")"
+	  <<" direction="<<msg.theta);
+}//Print out some data from the message
+
+int main(int argc,char **argv){
+	//Initialize the ROS system and become a node
+	ros::init(argc,argv,"subscribe_to_pose");
+	ros::NodeHandle nh;
+	
+	//Create a subscriber object.
+	ros::Subscriber sub = nh.subscribe("turtle1/pose",1000,&poseMessageReceived);
+	
+	//Let ROS take over
+	ros::spin();
+}
+```
+**In this code, note that:**  
+* A callback function: The subscriber doesn't know when messages will arrive. A callback function is codes that respond to incoming messages. It looks like this:  
+```
+void function_name(const package_name::type_name&msg){
+	...
+}
+//package_name and type_name refer to the message class for the topic which we plan to subscribe.
+```
+    In this case, the callback accepts messages of type turtlesim::Pose, so the header needed is `#include<turtlesim/Pose.h>`, the message type can be learned by using `rostopic info`.
+* A subscriber object: A ros::Subscriber object needs to be created to subscribe to a topic. It looks like this:   
+```
+ros::Subscriber sub = node_handle.subscribe(topic_name, queue_size, 
+    queue_size,pointer_to_callback_function);
+//node_handle object is created before
+//topic_name is the topic that we want to subscribe
+//queueq_size is the integer size of the message queue for this subscriber, you can use 1000 without any worry.
+//get a pointer to a function by using "&", note that do NOT add () after the function after a pointer
+```
+* Give ROS control:  
+    There are two different ways to give permision to ROS to execute the callback function:  
+	- ros::spin::Once():  
+        This code asks ROS to execute all of the pending cammbacks from all of the node's subscriptions, and then return control back to us.
+	- ros::spin():  
+	    Works like:  
+		```
+		while(ros::ok()){
+			ros::spinOnce();
+		}
+		```
+		
+**If your program have repetitive work to do, write a loop to do other work and call** `ros::spinOnce()` **periodically to process callbacks; if not, use** `ros::spin()` **.**  
+[Return to Index](Notes.md#Index)
+### Compile and execute the subscriber
+
+This program can be compiled and executed just like the publisher and hello program.  
+[You may refer to the former sections](Notes.md#Compile-and-execute-the-publisher)  
+Note this program has a dependency on turtlesim since it uses the *turtlesim/Pose* message type.   
+[Return to Index](Notes.md#Index)
