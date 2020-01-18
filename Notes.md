@@ -455,4 +455,50 @@ ROS programs only generate log messages at the INFO level and higher by default.
 	```
 [Return to Index](Notes.md#Index)
 ## Graph Resource Names
+	
+**This section shows how ROS resolves the name of nodes, topics, parameters and services.**  
+### Global names
+
+Examples:  
+```
+/teleop_turtle
+/turtlesim
+/turtle1/cmd_vel
+```
+Global names make sense anywhere they're used. They are composed of:  
+* A leading slash.
+* A sequence of zero or more namespaces
+* A base name
+### Relative name
+
+Example:
+```
+/teleop_turtle
+/turtlesim
+/turtle1/pose
+```
+* Resolve relative names:  
+    [default namespace]+[relative name]=[global name]
+    e.g.:/turtle1 + cmd_vel = /turtle1/cmd_vel
+* Set the default namespace
+  - Most ROS program accept a command line parameter called __ns, which specify a default namespace for the program.
+      e.g.: `__ns:default-namespace`
+  - You can also set the default namespace for every ROS program using an environment variable.  
+      `export ROS_NAMESPACE=default-namespace`  
+	  This environment variable is used only when no other default namespace is specified by the __ns parameter.
+**Relative names are used to make it easier for people to share their programs and modify them.**
+### Private names
+
+Priivate names rely on ROS client library to resolve the name to a complete global name, they are related only to its own node, and are not interested to other nodes.
+[node name]+[private name]=[global name]
+e.g.: /sim1/pubvel + ~max_vel = /sim1/pubvel/max_vel
+
+### Anonymous names
+
+Anonymous names are used to make it easier to obey the rule that each node must have a unique name.  
+A node can request a unique name that is assigned automatically by passing `ros::init_options::AnonymousName as a fourth parameter.`  
+e.g.: `ros::init(argc,argv,base_name,ros::init_options::AnonymousName);`  
+So that we can run as many simultaneous copies of that program as we like.  
+[Return to Index](Notes.md#Index)
+## Launch Files
 
