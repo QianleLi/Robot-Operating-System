@@ -45,7 +45,8 @@ To obtain a list of all of the installed ROS packages: `rospack list`
 ### Master and nodes
 
 Nodes: Small, mostly independent programs/ A running instance of ROS program.  
-Nodes have to aontact with each other, ROS master facilitates this communication.  
+Nodes have to contact with each other, ROS master facilitates this communication.  
+**Nodes shoule be largely independent of the other nodes.**
 * To start a master:  
 `roscore`  
 **Note: You should keep master running for the entire time when using ROS.**
@@ -469,7 +470,7 @@ Global names make sense anywhere they're used. They are composed of:
 * A leading slash.
 * A sequence of zero or more namespaces
 * A base name
-### Relative name
+### Relative names
 
 Example:
 ```
@@ -501,4 +502,137 @@ e.g.: `ros::init(argc,argv,base_name,ros::init_options::AnonymousName);`
 So that we can run as many simultaneous copies of that program as we like.  
 [Return to Index](Notes.md#Index)
 ## Launch Files
+
+We can use launch files to specify and condigure the nodes to be used.
+### Use launch files
+
+Following is a launch file that starts the turtlesim simulator, teleoperation node and subscriber node. This should be saved as exa,ple.launch in the main package directory for the package_name package.
+```
+<launch>
+  <node
+    pkg="turtlesim"
+	type="turtlesim_node"
+	name="turtlesim"
+	respawn="true"
+  />
+  <node
+    pkg="turtlesim"
+	type="turtle_teleop_key"
+	name="teleop_key"
+	required="true"
+	launch-prefix="xterm -e"
+  />
+  <node
+    pkg="package_name"
+	type="subpose"
+	name="pose_subscriber"
+	output="screen"
+  />
+</launch>
+```
+* To execute a launch file, use this command:  
+    `roslaunch package-name launch-file-name`  
+    In this example, the command is:  
+    `roslaunch package_name example.launch`  
+    `roslaunch` will determine whether `roscore` is already running, if not, start it automatically.  
+    The order of nodes started in a launch file is not certain.  
+* Request verbosity
+    `roslaunch` has an option to request verbose output:  
+	`roslaunch -v package-name launch-file-name`  
+	This command will show the details of the launch process.
+* End a launched session
+    Use Ctrl-C.
+### Create launch files
+
+- Where to place?  
+    Directly in the package directory
+- Basic ingredients  
+  * Insert the root element
+      Launch files are XML files, and every XML file has one root element. For ROS launch files, the root element is defined by a pair of launch tags:  
+	  ```
+	  <launch>
+	    ...
+	  </launch>
+	  ```
+	  All of other elements of each launch file should be enclosed between these tags.
+  * Launch nodes
+      A node element looks like this:
+	  ```
+	  <node
+	    pkg="package-name"
+		type="executable-name"
+		name="node-name"
+	  />
+	  ```
+	  A node element has three required attributes:
+	  1. The pkg and type attributes identify which program ROS should run to start this node.
+	  2. The name attribute assigns a name to the node. To use an anonymous name from within a launch file, the name attribute should like this:  
+	      `name="$(anon [base_name])"`  
+		  Note that multiple use of the same base name will generate the same anonymous name.
+  * Find node log files
+      Standard output from launched nodes is redirected to a log file and does not appear on the console. The name of the log file is:  
+	  `~/.ros/log/[run_id]/[node_name]-number-stdout.log`  
+	  The command to get run_id can be find [here](Notes.md#View-log-messages). The numbers in these file names are small integers that numbers the nodes.  
+	  These log files can be viewed with text editor.
+  * Direct output to the console
+    - Use the output attribute in its node element:
+	    `output="screen"`  
+	    The example launch file above uses this attribute for subpose node, which explains why the INFO messages from this node appear on the console.  
+	- Use --screen command-line option to force roslaunch to display output from all of its nodes.  
+	    `roslaunch --screen package-name launch-file-name`  
+		You can use this command to verify the output of your launch files.
+  * Resquest respawning  
+      Ask roslaunch to restart a node in the launch file when the node is terminated by adding this attribute:  
+	  `respawn="true"`  
+  * Requiring nodes  
+      An alternative to respawn is to declare that a node is required:  
+	  `required="true"`  
+	  When a required node terminates, roslaunch responds by terminating all of other active nodes and exiting itself. This attribute is useful for the core node that the entire section should be abandoned without it.
+  * Launch nodes in their own windows   
+      When using roslaunch, all nodes share the same terminal. For nodes that rely on console input, they may be preferable to retain the seperate terminals.
+	  To achieve this effect, use the `launch-prefix` attribute of a node element:  
+	  `launch-prefix="command-prefix"`  
+	  roslaunch will insert the given prefix at the start of the command line it constructs internally to execute the given node.
+	  For example:  
+	  `launch-prefix="xterm -e"`  
+	  This attribute makes this node element is roughly equivalent to this command: `xterm -e rosrun turtlesim turtle_teleop_key`, in which the `xterm` command starts a simple terminal window, the `-e` argument tessl `xterm` to execute the reminder of its command line inside itself.
+
+### Launch nodes inside a namespace
+
+The ususl way to set the default namespace for a node is to use a launch file and assign the `ns` attribute in its node element:  
+`ns="namespace"`  
+The following codes use this attribute to create two independent turtlesim simulators.  
+```
+<launch>
+  <node
+    name="turtlesim_node"
+	pkg="turtlesim"
+	type="turtlesim_node"
+	ns="sim1"
+  />
+  <node
+    pkg="turtlesim"
+	type="turtle_teleop_key"
+	name="teleop_key"
+	required="true"
+	launch-prefix="xterm -e"
+	ns="sim1"
+  />
+  <node
+    name="turtlesim_node"
+	pkg="turtlesim"
+	type="turtlesim_node"
+	ns="sim2"
+  />
+  <node
+    pkg="package_name"
+	type="pubvel"
+	name="velocity_publisher"
+	ns="sim2"
+  />
+</launch>
+```
+The node names in the launch file are relative names. The global name of first turtlesim_node is /sim1/turtlesim_node, the global name of second turtlesim_node is /sim2/turtlesim_node.  
+**Before we discussed a situation that multiple publishers and subscribers who publish or subscribe to same type of messages. In that case, a message from one publisher will be subscribed to all subscribers. But in this section if we start the launch file above, the two simulators is truly independent, enable us to publish different velocity command to each one.**  
+### Remapping names
 
