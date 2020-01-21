@@ -27,6 +27,12 @@
   - [View log messages](Notes.md#View-log-messages)
   - [Enable and disable log messages](Notes.md#Enable-and-disable-log-messages)
 - [Graph Resource Names](Notes.md#Graph-Resource-Names)
+- [Launch Files](Notes.md#Launch-Files)
+  - [Use launch files](Notes.md#Use-launch-files)
+  - [Create launch files](Notes.md#Create-launch-files)
+  - [Launch nodes inside a namespace](Notes.md#Launch-nodes-inside-a-namespace)
+  - [Remapping names](Notes.md#Remapping-names)
+  - [Other launch file elements](Notes.md#Other-launch-file-elements)
 ## ROS Basic Concept
 
 ### Packages
@@ -541,7 +547,8 @@ Following is a launch file that starts the turtlesim simulator, teleoperation no
 	`roslaunch -v package-name launch-file-name`  
 	This command will show the details of the launch process.
 * End a launched session
-    Use Ctrl-C.
+    Use Ctrl-C.  
+[Return to Index](Notes.md#Index)
 ### Create launch files
 
 - Where to place?  
@@ -595,8 +602,8 @@ Following is a launch file that starts the turtlesim simulator, teleoperation no
 	  roslaunch will insert the given prefix at the start of the command line it constructs internally to execute the given node.
 	  For example:  
 	  `launch-prefix="xterm -e"`  
-	  This attribute makes this node element is roughly equivalent to this command: `xterm -e rosrun turtlesim turtle_teleop_key`, in which the `xterm` command starts a simple terminal window, the `-e` argument tessl `xterm` to execute the reminder of its command line inside itself.
-
+	  This attribute makes this node element is roughly equivalent to this command: `xterm -e rosrun turtlesim turtle_teleop_key`, in which the `xterm` command starts a simple terminal window, the `-e` argument tessl `xterm` to execute the reminder of its command line inside itself.  
+[Return to Index](Notes.md#Index)
 ### Launch nodes inside a namespace
 
 The ususl way to set the default namespace for a node is to use a launch file and assign the `ns` attribute in its node element:  
@@ -634,5 +641,96 @@ The following codes use this attribute to create two independent turtlesim simul
 ```
 The node names in the launch file are relative names. The global name of first turtlesim_node is /sim1/turtlesim_node, the global name of second turtlesim_node is /sim2/turtlesim_node.  
 **Before we discussed a situation that multiple publishers and subscribers who publish or subscribe to same type of messages. In that case, a message from one publisher will be subscribed to all subscribers. But in this section if we start the launch file above, the two simulators is truly independent, enable us to publish different velocity command to each one.**  
+[Return to Index](Notes.md#Index)
 ### Remapping names
 
+Each remapping provides an original name and a new name. Each time a node uses any of its remappings' original names, the ROS client library silently replaces it with the new name from that remapping.  
+**Creating remappings**  
+There are two ways creating remapping when starting a node:  
+1. Remap a name when starting a node from the commmand line:  
+    For example, run a turtlesim that ublishes its pose data on a topic named /tim instead of /turtle1/pose:  
+	`rosrun turtlesim turtlesim_node turtle1/pose:=tim`  
+2. Remap names with a launch file, use a remap element:  
+    `<remap from="original-name" to="new-name"/>`  
+	If it appears at the top level, as a child of the launch element, this remapping will apply to all subsequent nodes. Put it under a node label so that it will appear as a child of that node and only apply to the single node.  
+[Return to Index](Notes.md#Index)
+### Other launch file elements 
+
+- Include other files  
+    To include contents of other launch file,including all of its nodes and parameters, use an include element:  
+	`<include file="path-to-launch-file"/>`  
+	The file attribute expects the full path to the file we want to include. Most include elements use a `find` substitution to search for a package, instead of explicitly naming a directory.  
+	`<include file="$(find package-name)/launch-file-name"/>`  
+	The include element also supports the `ns` attribute for pushing its contents into a namespace:  
+	`<include file="..." ns="namespace"namespace"/>`  
+- Launch arguments  
+    The advantage of using launch arguments is that you can avoid code duplication by writing launch files that use arguments for the small number of details that might change from run to run. The following code uses one argument called use_sim3, to determine wheter to start three copies of turtlesim or only two.  
+	```
+	#file name: triplesim.launch
+	<launch>
+	  <include
+	    file="$(find package_name)/doublesim.launch"
+	  />
+	  <arg
+	    name="use_sim3"
+		default="0"
+	  />
+	  <group ns="sim3" if="$(arg use_sim3)">
+	    <node
+		  name="turtlesim_node"
+		  pkg="turtlesim"
+		  type="turtlesim_node"
+		/>
+		<node 
+		  pkg="turtlesim"
+		  type="turtle_teleop_key"
+		  name="teleop_key"
+		  required="true"
+		  launch-prefix="xterm -e"
+		/>
+	  </group>
+	</launch>
+	```
+  * Declare arguments  
+    `<arg name="arg-name"/>`
+  * Assign argument values  
+    `roslaunch package-name launch-file-name arg-name:=arg-value`  
+	You can also provide a value as part of `arg` declaration, using one of these syntaxes:  
+	```
+	<arg name="arg-name" default="arg-value"/>   #Command argument can override a default
+	<arg name="arg-name" value="arg-value"/>   #cmd cannot override a value
+	```
+  * Use the argument value in the launch file  
+    `$(arg arg-name)`  
+  * Send argument values to included launch files  
+    Arguments are not inherited by included launch files. The solution is to insert `arg` elements as children of the included element, like this:  
+	```
+	<include file="path-to-launch-file">
+	  <arg name="arg-name" value="arg-value"/>
+	  ...
+	</include>
+	```
+	**Note the purpose is to establish values for the arguments needed by the included file, the value attribute is required in this context.**  
+  * Create groups  
+    **Group element provides a convenient way to organize nodes in a large launch file.**  
+    - Group can push several nodes into the same namespace
+	  ```
+	  <group ns="namespace">  #Every node starts within the grup starts with the given default namespace.
+	    ...
+      </group>
+	  ```
+	  *If a grouped node has its own `ns` attribute and that name is a relative name, then the resulting node will be started with a default namespace that nests the latter namespace within the former. This rule also applies to nested groups.*
+	- Groups can conditionally eable or disable nodes.  
+	  ```
+	  <group if="0-or-1">  #If the value of the if attribute is 0, then the enclosed elements are ignored.
+	    ...
+	  </group>
+	  ```
+	  The `unless` attribute works similarly, but with the meanings reversed:  
+	  ```
+	  <group unless="1-or-0">  
+	    ...
+	  </group>
+	  ```
+	  **Note that** `group` **is never strictly necessary. It is always possible to write the** `ns`**,** `if` **and** `unless` **attributes maunally for each elements that we might otehrwise include in a group. By the way, only these three attributes can be passed down via a group.**  
+[Return to Index](Notes.md#Index)
