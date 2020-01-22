@@ -33,6 +33,10 @@
   - [Launch nodes inside a namespace](Notes.md#Launch-nodes-inside-a-namespace)
   - [Remapping names](Notes.md#Remapping-names)
   - [Other launch file elements](Notes.md#Other-launch-file-elements)
+- [Parameters](Notes.md#Parameters)
+  - [Access parameters from the command line](Notes.md#Access-parameters-from-the-command-line)
+  - [Access parameters from C++](Notes.md#Access-parameters-from-C++)
+  - [Set parameters in launch files](Notes.md#Set-parameters-in-launch-files)
 ## ROS Basic Concept
 
 ### Packages
@@ -734,3 +738,152 @@ There are two ways creating remapping when starting a node:
 	  ```
 	  **Note that** `group` **is never strictly necessary. It is always possible to write the** `ns`**,** `if` **and** `unless` **attributes maunally for each elements that we might otehrwise include in a group. By the way, only these three attributes can be passed down via a group.**  
 [Return to Index](Notes.md#Index)
+## Parameters  
+
+A centralized parameter server keeps track of a collection of values. Parameters are most suitable for configuration information that will not change much over time. All parameters are owned by the parameter server rather than by any particular node, so that parameters will continue to exist even after the node they're intended for has terminated.
+### Access parameters from the command line
+
+* Listing parameters  
+    To see a list of all existing parameters, use this command:  
+	`rosparam list`  
+* Querying parameters  
+    Ask the parameter server for the value of a parameter:  
+	```
+	rosparam get [parameter_name]
+	rosparam get [namespace]  #Get values of every parameter in a namespace
+	rosparam get /  #Get values of every parameter
+	```
+* Setting parameters
+    `rosparam set [parameter_name] [parameter_value]`  
+	This command can modify the values of existing parameters or create new ones. e.g.:  
+	``` 
+	rosparam set /duck_colors/huey red
+	rosparam set /duck_colors/dewey blue
+	rosparam set /duck_colors/louie green
+	rosparam set /duck_colors/webby pink
+	```
+	or:  
+	```
+	rosparam set /duck_colors"huey: red
+	dewey: blue
+	louie: green
+	webby: pink"
+	```
+* Create and load parameter files  
+    Store all of the parameters from a namespace in YAML format to a file:  
+	`rosparam dump [filename] [namespace]`  
+	Read parameters from a file and adds them to the parameter server:  
+	`rosparam load [filename] [namespace]`  
+	For both commands above, the namespace parameter is optional and defaults to the global namespace. The combination of `dump` and `load` can be useful for testing.  
+[Return to Index](Notes.md#Index)
+### Access parameters from C++
+```
+void ros::param::set([parameter_name],[input_value]);
+bool ros::param::get([parameter_name],[output_value]);
+```
+The parameter name is a string, which can be a global, relative or private name.The input value for `set` can be std::string, a bool, an int or a double. The output value for `set` should be a variable of one of these types.  
+The `get` function returns true if the value was read successfully and false if there was a program.  
+The following is two examples: The first example illustrates ros::param::set, and the second shows an example of ros::param::get.
+```
+//This program waits for a turtlesim to start up, and change its background color
+#include<ros/ros.h>
+#include<std_srvs/Empty.h>
+int main(int argc, chat **argv){
+	ros::init(argc,argv,"set_bg_color");
+	ros::nodeHandle nh;
+	
+	//Wait until the clear service is available, which indicated that turtlesim has started up, and has set the background color parameters.
+	ros::service::waitForService("clear");
+	
+	//Set the background color for turtlesim, overriding the default blue color.
+	ros::param::set("background_r",255);
+	ros::param::set("background_g",255);
+	ros::param::set("background_b",0);
+	
+	//Get turtlesim to pick up the new parameter values
+	ros::ServiceClient clearClient = nh.serviceClient<std_srvs::Empty>("/clear");
+	std_srvs::Empty srv;
+	clearClient.call(srv);
+}
+```
+Before running the second example, set a parameter called `max_vel` in its private namespace: `rosparam set /publish_velocity/max_vel 0.1`  
+```
+//This program publishes random velocity commands, using a maximun linear valocity read from a parameter.
+#include <ros/ros.h>
+#include <geometry_msgs/Twist.h>
+#include <stdlib.h>
+int main(int argc, char **argv) {
+	ros::init(argc, argv, "publish_velocity");
+	ros::NodeHandle nh;
+	ros::Publisher pub = nh.advertise<geometry_msgs::Twist>("turtle1/cmd_vel",1000);
+	srand(time(0));
+	
+	//Get the maximum velocity parameter
+	const std::string PARAM_NAME = "~max_vel";
+	double maxVel;
+	bool ok = ros::param::get(PARAM_NAME, maxVel);
+	if(!ok){
+		ROS_FATAL_STREAM("Could not get parameter"<<RAPRM_NAME);
+		exit(1);
+	}
+	ros::Rate rate(2)
+	while(ros::ok()){
+		//Create and send a random velocity command
+		geometry_msgs::Twist msg;
+		msg.linear.x = maxVel*double(rand())/double(RAND_MAX);
+		msg.angular.z = 2*double(rand())/double(RAND_MAX)-1;
+		pub.publish(msg);
+		
+		//Wait until it is time for another iteration.
+		rate.sleep();
+	}
+}
+```
+[Return to Index](Notes.md#Index)
+### Set parameters in launch files
+
+* Set parameters    
+    Use a param element:  
+	`<param name="param-name" value="param-value"/>`  
+	The following launch file fregment does the same job as the code we illustrate `rosparam set`.  
+	```
+	<group ns="duck_colors">
+	  <param name="huey" value="red"/>
+	  <param name="dewey" value="blue"/>
+	  <param name="louie" value="green"/>
+	  <param name="webby" value="pink"/>
+	</group>
+	```
+* Set private parameters  
+    You can also include `param` elements as children of a node element.  
+	```
+	<node...>
+	  <param name="param-name" value="param-value"/>
+	  ...
+	</node>
+	```
+	The parameter names are treated as private names for that node.
+	e.g.:  
+	```
+	<node
+	  pkg="package_name"
+	  type="pubvel_with_max"
+	  name="publish_velocity"
+	/>
+	  <param name="max_vel" value="3" />
+	</node>
+	```  
+* Read parameters from a file  
+    Launch files support an equivalent to `rosparam load`, to set many parameters at once.  
+	`<rosparam command="load" file="path-to-param-file" />`  
+	It is a typical to use a `find` substitution to specify the file name relative to a package directory.  
+	```
+	<rosparam
+	  command="load"
+	  file="$(find package-name)/param-file"
+	/>
+	```
+	use `rosparam dump` to create the file and record past parameters, use `rosparam load` to reload the parameters, which is helpful for testing.  
+[Return to Index](Notes.md#Index)
+## Services
+
