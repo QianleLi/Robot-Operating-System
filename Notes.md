@@ -2,7 +2,7 @@
 
 ## Preface
 
-:smirk: These are notes that I took while reading the book *A Gentle Introduction to ROS*, now I am not finished but I will keep this document updated. I took an introduction course about robotics in the last semester and did a little project(mostly follow the tutorial). I want to have a thorough view of ROS after reading this book. I use VMware to run a vitual machine on my computer with Ubuntu 16.04 and ROS kinetic.  
+:smirk: These are notes that I took while reading the book *A Gentle Introduction to ROS*. I took an introduction course about robotics in the last semester and did a little project(mostly follow the tutorial). I want to have a thorough view of ROS after reading this book. I use VMware to run a vitual machine on my computer with Ubuntu 16.04 and ROS kinetic.  
 :smiley: The installation tutorial is not included in this note, you may refer to [wiki.ros.org/installation](http://wiki.ros.org/ROS/Installation).   
 :joy: For more tutorials, you may refer to [wiki.ros.org/tutorial](http://wiki.ros.org/ROS/Tutorials)
 
@@ -37,6 +37,14 @@
   - [Access parameters from the command line](Notes.md#Access-parameters-from-the-command-line)
   - [Access parameters from C++](Notes.md#Access-parameters-from-C++)
   - [Set parameters in launch files](Notes.md#Set-parameters-in-launch-files)
+- [Services](Notes.md#Services)
+  - [Find and call services from the command line](Notes.md#Find-and-call-services-from-the-command-line)
+  - [A client program](Notes.md#A-client-program)
+  - [A server program](Notes.md#A-server-program)
+    - [Run and improve the server program](Notes.md#Run-and-improve-the-server-program)
+- [Record and replay messages](Notes.md#Record-and-replay-messages)
+  - [Record and replay bag files](Notes.md#Record-and-replay-bag-files)
+  - [Bags in launch files](Notes.md#Bags-in-launch-files)
 ## ROS Basic Concept
 
 ### Packages
@@ -887,3 +895,229 @@ int main(int argc, char **argv) {
 [Return to Index](Notes.md#Index)
 ## Services
 
+Service calls are alternative method of communication. It can differs from messages in two ways:  
+1. Services calls are bi-directional. One node sends infomation to aother node and waits for a response.
+2. Service calls implement one-to-one communication.  
+
+A client node sends a request to a server node and waits for a reply. The server received the request, takes some action and sends a response back to the client.
+### Find and call services from the command line
+**Note the different between** `rosservice` **and** `rossrv`**.**  
+
+| |Topics|Services|
+|---|---|---|
+|active things|rostopic|rosservice|
+|data types|rosmsg|rossrv|
+
+* Get a list of services that are currently active:
+    `rosservice list`  
+* List services by node:  
+    `rosnode info node-name`  
+* Find the node offering a service
+    `rosservice node service-name`  
+	Note that a service data type has two parts, package name and type name.  
+	turtlesim + Spawn = turtlesim/Spawn
+	package name + type name = service data type
+* Inspect service data type:  
+    `rossrv show service-data-type-name`  
+	e.g.:  
+	`rossrv show turtlesim/Spawn`  
+	You may see something like:  
+	```
+	float32 x
+	float32 y
+	float32 theta
+	string name
+	---
+	string name
+	```
+	The data before the dashes are the elements of the **request**, everything after the dash is the **response**.
+	**Both request and response can be empty.**
+* Call services from the command line  
+    `rosservice call service-name request-content`  
+	e.g.:  
+	`rosservice call /spawn 3 3 0 Mikey`  
+	Effect of this command is to create a new turtle named "Mikey" at position(x,y)=(3,3), facing angle θ = 0. The new turtle comes with its own set of resources which live in a namespace called Mikey.  
+[Return to Index](Notes.md#Index)
+### A client program
+
+This following example illustrates all of the basic elements of a service client program.
+```
+//spawn_turtle.cpp
+//This program spawns a new turtlesim turtle by calling the appropricte service
+#include <ros/ros.h>
+
+//The srv class for the service
+#include <tutrlesim/Spawn.h>
+
+int main(int argc, char **argv){
+	ros::init(argc,argv,"spawn_turtle");
+	ros::NodeHandle nh;
+	
+	//Create a client object for the spawn service. This will need to know the data rype of the service and its name
+	ros::ServiceClient spawnClient = nh.serviceClient<turtlesim::Spawn>("spawn");
+	
+	//Create the request and response objects
+	turtlesim::Spawn::Request req;
+	turtlesim::Spawn::Response resp;
+	
+	//Fill in the request data members
+	req.x = 2;
+	req.x = 3;
+	req.theta = M_PI / 2;
+	req.name = "Leo";
+	
+	//Actually call the service. This won't return until the service is conplete.
+	bool success = spawnClient.call(req, resp);
+	
+	//Check for success and use the response.
+	if(success){
+		ROS_INFO_STREAM("Spawned a turtle named "<<resp.name);
+	} else {
+		ROS_ERROR_STREAM("Failed to spawn.");
+	}
+}
+```
+**In summary:**  
+1. Declare the request and response types  
+    Like message types,every service data has an associated C++ header file that we must include: `#include <package_name/type_name.h>`  
+	In this example: `#include <turtlesim/Spawn.h>`  
+2. Create a client object  
+    `ros::ServiceClient client = node_handle.serviceClient<service_type>(service_name)`
+3. Create request and response object  
+    Create a request and a response object to contain the data to and from the server.  
+    ```
+	package_name::service_type::Request
+	package_name::service_type::Response
+	```
+4. Call the service  
+    `bool success = service_client.call(request,response);`  
+	This method does the actual work of locating the server code, transmitting the request data, waiting for a response and storing the response data. It returns a bolean value that tells us if the service call completed successfully. **It is recommend to check the return value of `call`.**
+5. Declare a dependency  
+    [Review steps to declare a dependency](Notes.md#Compile-and-execute-the-Hello-program)  
+	For this example, modify one line in CMakeList.txt:  
+	`find_package(catkin REQUIRED COMPONENTS roscpp turtlsim)`  
+	Modify the package.xml:  
+	```
+	<build_depend>turtlesim</build_depend>
+	<run_depend>turtlesim</run_depend>
+	```
+	After making these changes, use `catkin_make` to compile the program.  
+[Return to Index](Notes.md#Index)
+### A server program
+
+The following example shows a service called toggled_forward and also drives a turtlesim robot.  
+```
+//pubvel_toggle.cpp
+//This program toggles between rotation and translation commands, based on calls to a service
+#include <ros/ros.h>
+#include <std_srvs/Empty.h>
+#include <geometry_msgs/Twist.h>
+
+bool forward = true;
+bool toggleForward(
+  std_srvs::Empty::Request &req,
+  std_srvs::Empty::Response &resp
+){
+  forward = !forward;
+  ROS_INFO_STREAM("Now sending " << (Forward ? "forward" : "rotate")<< " commands.");
+  return true;
+}
+
+int main(int argc, char **argv){
+	ros::init(argc,argv,"pubvel_toggle");
+	ros::NodeHandle nh;
+	
+	//Register our service with the master.
+	ros::ServiceServer server = nh.advertiseService(
+	  "toggle_forward",
+	  &toggleForward
+	);
+	  
+	//Publish commands, using the latest value for forward, until the node shuts down.
+	ros::Publisher pub = nh.advertise<geometry_msgs::Twist>("turtle1/cmd_vel",1000);
+	ros::Rate rate(2);
+	while(ros::ok()){
+		geometry_msgs::Twist msg;
+		msg.linear.x = forward ? 1.0 : 0.0;
+		msg.angular.z = forward ? 0.0 : 1.0;
+		pub.publish(msg)
+		ros::spinOnce();
+		rate.sleep();
+	}
+}
+```
+Sth you should know about the codes:  
+* Write a service callback  
+    ```
+	bool function_name(
+	    package_name::service_type::Request &req,
+		package_name::service_type::Response &resp
+	){
+		...
+	}
+	```
+	ROS executes the callback function once for each service call that the node receives. The callback function should return true to indicate success or false to indicate failure.
+* Create a server object  
+    We must `advertise` the service to associate the callback function with a service name and to offer the service to other nodes.  
+	```
+	ros::ServiceServer server = node_handle.advertiseService(
+	    service_name,   //string name of service we would like to offer, can be a global name or a relative name.
+		pointer_to_callback_function
+	);
+	```
+	[A quick introduction to function pointers is included in this section.](Notes.md#A-subscriber-program)  
+* Give ROS control  
+    Use `ros::spin()` or `ros::spinOnce()`  
+	[The discussion of differences between the two above codes.](Notes.md#A-subscriber-program)  
+	
+[Return to Index](Notes.md#Index)
+#### Run and improve the server program
+
+Compile and run both turtlesim_node and pub_vel_toggle. You can call the toggle_forward service from the command line to switch the motion commands:  
+`rosservice call /toggle_forward`  
+Because the rate of the program is set to be 2Hz, there is a noticeable lag when running it.  
+Possible improvements:  
+1. Use two seperate threads.
+2. replace `sleep/ros::spinOnce` loop with a `ros::spin`, and use a timer callback to the publish messages.  
+
+[Return to Index](Notes.md#Index)
+## Record and replay messages
+
+With `rosbag` we can record the messages published on one or more topics to a file and then later replay those messages.  
+### Record and replay bag files
+
+- Record bag files   
+    ```
+    rosbag record -O filename.bag topic-names  
+	rosbag record -a ...  //record messages on every topics
+	rosbag record -j ...  //enable compression in the bag file
+	```
+	To finish recording, use `Ctrl-C` to stop `rosbag`.  
+- Replay bag files  
+	`rosbag play filename.bag`  
+- Inspect bag files  
+	`rosbag info filename.bag`  
+[Return to Index](Notes.md#Index)
+### Bags in launch files  
+
+A record node may like this:  
+```
+<node 
+	pkg="rosbag"
+	name="record"
+	type="record"
+	args="-O filename.bag topic-names"
+/>
+```
+A play node may like this:  
+```
+<node
+	pkg="rosbag"
+	name="play"
+	type="play"
+	args="filename.bag"
+/>
+```
+[Return to Index](Notes.md#Index)  
+V 1.0  
+1/23/2020
