@@ -192,22 +192,25 @@ int main(int argc, char **argv) {
 	add_executable(hello hello.cpp)
 	target_link_libraries(hello ${catkin_LIBRARIES})
 	```
-	**When I tested the above steps on ROS kinetics, I found that one more step was needed, which was adding** `include_directories(include ${catkin_INCLUDE_DIRS})` **in the CMakeLists.txt.**
+	**When I tested the above steps on ROS kinetics, I found that one more step was needed, which was adding** `include_directories(include ${catkin_INCLUDE_DIRS})` **in the CMakeLists.txt.**  
 3. Build the workspace
 ```
 cd ~/workspace
 catkin_make
 ```
 You will see sth like:  
-`[100%]Built target hello`
+`[100%]Built target hello`  
 4. Source setup.bash
     This is the final step to compile the program which sets several encironmental variables that enable ROS to find the package and its new-generated executables.**You need to do this once in each terminal.**  
-	`source devel/setup.bash`
+	`source devel/setup.bash`  
+    	If you only use one catkin workspace, you can add this command to your `.bashrc` file, so that it automatically occurs for every new shell or terminal window you run.  
+	For example, if your catkin workspace is `catkin_ws` in your home directory, edit `.bashrc` in your home directory and add the following line to the end of the file. The `.bashrc` file is normally hidden, but you can still reference it to edit it or enable "Show hidden files" in the file browser preferences.  
+	`. ~/catkin_ws/devel/setup.bash`  
 5. Start the roscore  
-    The first step to execute a program is always make sure that `roscore` is run in one of your terminal.
+    The first step to execute a program is always make sure that `roscore` is run in one of your terminal.  
 6. Start the hello program  
     Use `rosrun` command to run the program.  
-	In this case, `rosrun package_name hello`  
+	In this case, `rosrun package_name hello`   
 	[Return to Index](Notes.md#Index)
 ### A publisher program  
 
