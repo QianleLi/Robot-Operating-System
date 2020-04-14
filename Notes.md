@@ -46,6 +46,10 @@
   - [Record and replay bag files](Notes.md#Record-and-replay-bag-files)
   - [Bags in launch files](Notes.md#Bags-in-launch-files)
 - [STDR Simulator](Notes.md#STDR-Simulator)
+- [Gazebo](Notes.md#Gazebo)
+  - [Build a world](Notes.md#Build-a-world)
+  - [Build a robot model](Notes.md#Build-a-robot-model)
+  - [Additional Info](Notes.md#Additional-Info)
 ## ROS Basic Concept
 
 ### Packages
@@ -1151,4 +1155,25 @@ Here I only want to take a note about how to draw my own map and use that map in
 In my project I took the above three steps and created three files, which is midterm1.png, midterm1.yaml and midterm1.launch. Use this command to start the simulator:  
 `roslaunch stdr_launchers midterm1.launch`  
 [Return to Index](Notes.md#Index)  
-3/20/2020
+
+## Gazebo
+
+I am doing the final project of EE631 now, in which gazebo is used to visualize the simulation. Therefore, here is the notes that I took about gazebo. By the way, in this final project, I used ubuntu 18.04 and ROS melodic, with a [Human Robot Interaction Environment](https://github.com/ral-stevens/CPE631Final) provided by the professor.  
+### Build a world
+
+To build the world in the GUI, the tutorial is [here](http://gazebosim.org/tutorials?tut=build_world&cat=build_world).  
+**Note:** when running `gazebo` in a terminal and click the button 'save world as' to save the world, I encountered a problem that I cannot open the window to select a folder. To solve this problem, gazebo should be started by using `sudo gazebo` command.  
+[Return to Index](Notes.md#Index)  
+### Build a robot model
+
+In this project, the robot model is described in a SDF(Simulation Description Format) file. A detailed tutorial of a SDF file can be found [here](http://gazebosim.org/tutorials?tut=build_model&cat=build_robot).  
+To build a mobile robot, the tutorial can be found [here](http://gazebosim.org/tutorials?tut=build_robot&cat=build_robot). 
+### Additional Info
+
+- About the pose  
+	`<pose>0 0 .1 0 0 0</pose>`  
+	The pose attribute has six parameters, which is x, y, z, roll(rotate around x axis), pitch(rotate around y axis), yall(rotate around z axis). The rotation direction is based on right-hand rule.
+- The visualized coordinate of gazebo  
+	The red axis is x axis, the green axis is y axis and the blue axis is z axis.  
+[Return to Index](Notes.md#Index)  
+4/14/2020
