@@ -234,13 +234,13 @@ int main(int argc, char **argv){
 	ros::Publisher pub = nh.advertise<geometry_msgs::Twist>("turtle1/cmd_vel",1000);
 	
 	//Seed the random number generator
-	srand(time(0))
+	srand(time(0));
 	
 	//Loop at 2 Hz until the node is shut down
 	ros::Rate rate(2)
 	while(ros::ok()){
 		//Create and fill in the message. The other four fields, as the turtle is in a 2-D space, is ignored by turtlesim, default to 0.
-		geomotry_msgs::Twist msg;
+		geometry_msgs::Twist msg;
 		msg.linear.x=double(rand())/double(RAND_MAX);
 		msg.angular.z=2*double(rand())/double(RAND_MAX)-1;
 		
@@ -270,7 +270,7 @@ int main(int argc, char **argv){
   * `topic_name` is a string containing the name of the topic on which we want to publish. It should match names shown by `rostopic` or `rqt_graph` but wigh out leading slash. In this case, the topic name should be *turtle1/cmd_vel*.
   * `queue_size` is an integer represent the the size of the message queue for this publisher. In most case, a reasonably large value like 1000 is suitable.   
     *If you want to publish messages on multiple topics from the same node, you will need to create a seperate ros::Publish object for each topic.*  
-    **It is recommanded to create one publisher for each topic and use that publisher throughout the execution of your program.**
+    **It is recommended to create one publisher for each topic and use that publisher throughout the execution of your program.**
 - Create and fill in the message object
   * Create the message onject:
       `geometry_msgs::Twist msg;`
