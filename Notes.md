@@ -237,7 +237,7 @@ int main(int argc, char **argv){
 	srand(time(0));
 	
 	//Loop at 2 Hz until the node is shut down
-	ros::Rate rate(2)
+	ros::Rate rate(2);
 	while(ros::ok()){
 		//Create and fill in the message. The other four fields, as the turtle is in a 2-D space, is ignored by turtlesim, default to 0.
 		geometry_msgs::Twist msg;
